@@ -7,11 +7,6 @@ from rest_framework.views import APIView
 from apps.core.access import ProjectOwnedMixin
 
 from apps.stripe_core.hub_keys import HUB_SLUG, sync_vault_to_billing_projects
-from apps.stripe_core.secret_placement import (
-    audit_portfolio_secret_placement,
-    audit_project_secret_placement,
-    repair_project_secret_placement,
-)
 from .setup_hub import (
     audit_stripe_account,
     register_webhooks_for_user,
@@ -45,36 +40,6 @@ class SetupHubActionView(ProjectOwnedMixin, APIView):
         dry_run = bool(request.data.get("dryRun") or request.data.get("dry_run"))
 
         try:
-            if action == "audit_secrets":
-                hub = project if project.slug == HUB_SLUG else None
-                if hub is None:
-                    from apps.stripe_core.hub_keys import get_hub_project
-
-                    hub = get_hub_project(request.user)
-                if request.data.get("portfolio"):
-                    data = audit_portfolio_secret_placement(request.user)
-                else:
-                    data = audit_project_secret_placement(project, hub=hub).to_dict()
-                if request.data.get("repair") and not data.get("ok"):
-                    data["repair"] = repair_project_secret_placement(project, hub=hub)
-                    data = audit_project_secret_placement(project, hub=hub).to_dict()
-                return Response({"ok": data.get("ok", False), "audit": data, "status": setup_hub_status(project, user=request.user)})
-
-            if action == "repair_secrets":
-                from apps.stripe_core.hub_keys import get_hub_project
-
-                hub = get_hub_project(request.user)
-                result = repair_project_secret_placement(project, hub=hub)
-                audit = audit_project_secret_placement(project, hub=hub).to_dict()
-                return Response(
-                    {
-                        "ok": result.get("ok"),
-                        "repair": result,
-                        "audit": audit,
-                        "status": setup_hub_status(project, user=request.user),
-                    }
-                )
-
             if action == "reset":
                 result = reset_workspace(
                     project,

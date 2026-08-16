@@ -356,15 +356,6 @@ def push_vault_env_to_platform(
         inline = {str(k): str(v) for k, v in variables.items()}
 
     env_vars = build_env_var_payload(project, keys=keys, variables=inline, preset=preset)
-    if (project.slug or "").strip() == "stripe-installer":
-        wh = get_secret(project, "STRIPE_WEBHOOK_SECRET") or get_secret(project, "SAAS_STRIPE_WEBHOOK_SECRET")
-        sk = get_secret(project, "STRIPE_SECRET_KEY") or get_secret(project, "SAAS_STRIPE_SECRET_KEY")
-        if wh:
-            env_vars.setdefault("SAAS_STRIPE_WEBHOOK_SECRET", wh)
-            env_vars.setdefault("STRIPE_WEBHOOK_SECRET", wh)
-        if sk:
-            env_vars.setdefault("SAAS_STRIPE_SECRET_KEY", sk)
-            env_vars.setdefault("STRIPE_SECRET_KEY", sk)
     if not env_vars:
         health = vault_health(project)
         if health["unreadableCount"]:

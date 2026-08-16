@@ -425,21 +425,6 @@ def _retire_superseded_host_webhooks(keep_url: str) -> list[str]:
     return removed
 
 
-def _rotate_webhook_secret(endpoint_id: str) -> str | None:
-    """Roll signing secret so vault/Railway can sync whsec_ when reusing an existing endpoint."""
-    try:
-        result = stripe.WebhookEndpoint._static_request(
-            "post",
-            f"/v1/webhook_endpoints/{endpoint_id}/secret",
-            params={"rollout_time": 0},
-        )
-    except stripe.StripeError:
-        return None
-    if isinstance(result, dict):
-        return str(result.get("secret") or "") or None
-    return str(getattr(result, "secret", "") or "") or None
-
-
 def _register_webhook(url: str, events: list[str]) -> dict[str, Any]:
     endpoints = stripe.WebhookEndpoint.list(limit=100)
 
@@ -455,18 +440,13 @@ def _register_webhook(url: str, events: list[str]) -> dict[str, Any]:
             disabled=False,
         )
         _retire_superseded_host_webhooks(normalized)
-        secret = _rotate_webhook_secret(match.id)
-        if secret:
-            return {
-                "id": match.id,
-                "url": getattr(updated, "url", url),
-                "secret": secret,
-                "reused": True,
-                "secretRotated": True,
-                "urlCorrected": current_url != url,
-            }
-        # Stripe does not expose signing secrets for existing endpoints — recreate to sync whsec_.
-        stripe.WebhookEndpoint.delete(match.id)
+        return {
+            "id": match.id,
+            "url": getattr(updated, "url", url),
+            "secret": None,
+            "reused": True,
+            "urlCorrected": current_url != url,
+        }
 
     created = stripe.WebhookEndpoint.create(
         url=url,
@@ -556,9 +536,9 @@ def _provision_webhook(
         elif project:
             set_secret(project, "STRIPE_WEBHOOK_SECRET", webhook["secret"])
         result.webhook_secret_stored = True
-    elif webhook.get("reused") and not webhook.get("secretRotated"):
+    elif webhook.get("reused"):
         warnings.append(
-            "Webhook endpoint already exists — could not rotate signing secret. "
+            "Webhook endpoint already exists — could not retrieve signing secret. "
             "Copy whsec_ from Stripe Dashboard → Webhooks → Signing secret."
         )
 
