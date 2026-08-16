@@ -41,7 +41,7 @@ def projects_for_user(user):
 
 
 def get_project_for_user(user, slug: str, *, min_role: str = "viewer") -> Project:
-    project = get_object_or_404(projects_for_user(user), slug=slug)
+    project = get_object_or_404(Project, slug=slug)
 
     from apps.stripe_core.hub_keys import HUB_SLUG
     from apps.stripe_core.portfolio_workspace import reconcile_hub_workspace
